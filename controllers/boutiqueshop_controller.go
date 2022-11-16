@@ -19,13 +19,27 @@ package controllers
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
 )
+
+type NewComponentFn func(context.Context, *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error)
+
+type component struct {
+	name   string
+	reason string
+	fn     NewComponentFn
+}
 
 // BoutiqueShopReconciler reconciles a BoutiqueShop object
 type BoutiqueShopReconciler struct {
@@ -37,26 +51,248 @@ type BoutiqueShopReconciler struct {
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the BoutiqueShop object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 
-	// TODO(user): your logic here
+	instance := &demov1alpha1.BoutiqueShop{}
+	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	for _, component := range []component{
+		{"EmailDeployment", "", r.newEmailDeployment},
+		{"EmailService", "", r.newEmailService},
+		{"CheckoutService", "", r.newCheckoutService},
+		{"RecommendationService", "", r.newRecommendationService},
+	} {
+		obj, mutateFn, err := component.fn(ctx, instance)
+		if err != nil {
+			log.Error(err, "Failed to mutate resource", "Kind", component.name)
+			return ctrl.Result{}, err
+		}
+
+		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, obj, mutateFn)
+		if err != nil {
+			log.Error(err, "Failed to create or update", "Kind", component.name)
+			return ctrl.Result{}, err
+		}
+		switch result {
+		case controllerutil.OperationResultCreated:
+			log.Info("Created " + component.name)
+			return ctrl.Result{}, nil
+		case controllerutil.OperationResultUpdated:
+			log.Info("Updated " + component.name)
+			return ctrl.Result{}, nil
+		}
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	container := corev1.Container{
+		Name:  "server",
+		Image: "gcr.io/google-samples/microservices-demo/emailservice:v0.3.9",
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: int32(8080),
+				Protocol:      corev1.ProtocolTCP,
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "PORT",
+				Value: "8080",
+			},
+			{
+				Name:  "DISABLE_TRACING",
+				Value: "1",
+			},
+			{
+				Name:  "DISABLE_PROFILER",
+				Value: "1",
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			PeriodSeconds: 5,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			PeriodSeconds: 5,
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
+				},
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: pointer.Bool(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsNonRoot:           pointer.Bool(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+	}
+
+	labels := map[string]string{
+		"app": emailName(instance),
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      emailName(instance),
+			Namespace: instance.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: pointer.Int32(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+					Name:   instance.ObjectMeta.Name,
+				},
+			},
+		},
+	}
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+			return err
+		}
+
+		// don't clobber fields that were defaulted
+		if len(deployment.Spec.Template.Spec.Containers) != 1 {
+			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
+		} else {
+			c := deployment.Spec.Template.Spec.Containers[0]
+			c.Name = container.Name
+			c.Image = container.Image
+			c.Ports = container.Ports
+			c.ImagePullPolicy = container.ImagePullPolicy
+			c.Env = container.Env
+			c.LivenessProbe = container.LivenessProbe
+			c.ReadinessProbe = container.ReadinessProbe
+			c.SecurityContext = container.SecurityContext
+		}
+
+		return nil
+	}
+
+	return deployment, mutateFn, nil
+}
+
+func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	labels := map[string]string{
+		"app": emailName(instance),
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      emailName(instance),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
+			return err
+		}
+
+		service.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       5000,
+				TargetPort: intstr.FromInt(8080),
+			},
+		}
+		service.Spec.Selector = labels
+
+		return nil
+	}
+
+	return service, mutateFn, nil
+}
+
+func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	labels := map[string]string{
+		"app": checkoutName(instance),
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      checkoutName(instance),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
+			return err
+		}
+
+		service.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       5050,
+				TargetPort: intstr.FromInt(5050),
+			},
+		}
+		service.Spec.Selector = labels
+
+		return nil
+	}
+
+	return service, mutateFn, nil
+}
+
+func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	labels := map[string]string{
+		"app": recommendationName(instance),
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      recommendationName(instance),
+			Namespace: instance.Namespace,
+		},
+	}
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
+			return err
+		}
+
+		service.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
+			},
+		}
+		service.Spec.Selector = labels
+
+		return nil
+	}
+
+	return service, mutateFn, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BoutiqueShopReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&demov1alpha1.BoutiqueShop{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }

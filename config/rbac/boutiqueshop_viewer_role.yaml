@@ -1,0 +1,27 @@
+# permissions for end users to view boutiqueshops.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: boutiqueshop-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: boutique-shop-operator
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: boutiqueshop-viewer-role
+rules:
+- apiGroups:
+  - demo.openshift.com
+  resources:
+  - boutiqueshops
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - demo.openshift.com
+  resources:
+  - boutiqueshops/status
+  verbs:
+  - get

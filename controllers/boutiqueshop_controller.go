@@ -56,10 +56,18 @@ type BoutiqueShopReconciler struct {
 
 func (r *BoutiqueShopReconciler) components() []component {
 	return []component{
+		{"AdService", "", r.newAdService},
+		{"CartService", "", r.newCartService},
+		{"CatalogService", "", r.newCatalogService},
+		{"CheckoutService", "", r.newCheckoutService},
+		{"CurrencyService", "", r.newCurrencyService},
 		{"EmailDeployment", "", r.newEmailDeployment},
 		{"EmailService", "", r.newEmailService},
-		{"CheckoutService", "", r.newCheckoutService},
+		{"FrontendService", "", r.newFrontendService},
+		{"PaymentService", "", r.newPaymentService},
 		{"RecommendationService", "", r.newRecommendationService},
+		{"RedisService", "", r.newRedisService},
+		{"ShippingService", "", r.newShippingService},
 	}
 }
 
@@ -231,14 +239,40 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 	return deployment, mutateFn, nil
 }
 
-func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
-	return r.newService(ctx, instance, emailName,
+func (r *BoutiqueShopReconciler) newAdService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, adName,
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       5000,
+				Port:       9555,
 				Protocol:   corev1.ProtocolTCP,
-				TargetPort: intstr.FromInt(8080),
+				TargetPort: intstr.FromInt(9555),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newCartService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, cartName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       7070,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(7070),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newCatalogService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, catalogName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       3550,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(3550),
 			},
 		},
 	)
@@ -257,6 +291,58 @@ func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instanc
 	)
 }
 
+func (r *BoutiqueShopReconciler) newCurrencyService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, currencyName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       7000,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(7000),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, emailName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       5000,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(8080),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newFrontendService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, frontendName,
+		[]corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       80,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(8080),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newPaymentService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, paymentName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       50051,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(50051),
+			},
+		},
+	)
+}
+
 func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
 	return r.newService(ctx, instance, recommendationName,
 		[]corev1.ServicePort{
@@ -265,6 +351,32 @@ func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, i
 				Port:       8080,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(8080),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newRedisService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, redisName,
+		[]corev1.ServicePort{
+			{
+				Name:       "tls-redis",
+				Port:       6379,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(6379),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, shippingName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       50051,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(50051),
 			},
 		},
 	)

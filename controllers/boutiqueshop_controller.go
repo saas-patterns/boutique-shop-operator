@@ -17,8 +17,11 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"io"
 
+	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +54,48 @@ type BoutiqueShopReconciler struct {
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops/finalizers,verbs=update
 
+func (r *BoutiqueShopReconciler) components() []component {
+	return []component{
+		{"EmailDeployment", "", r.newEmailDeployment},
+		{"EmailService", "", r.newEmailService},
+		{"CheckoutService", "", r.newCheckoutService},
+		{"RecommendationService", "", r.newRecommendationService},
+	}
+}
+
+func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueShop, out io.Writer) error {
+	ctx := context.TODO()
+	log := ctrllog.FromContext(ctx)
+
+	buf := bytes.Buffer{}
+	for i, component := range r.components() {
+		if i > 0 {
+			buf.Write([]byte("\n---\n"))
+		}
+		obj, mutateFn, err := component.fn(ctx, instance)
+		if err != nil {
+			log.Error(err, "Failed to mutate resource", "Kind", component.name)
+			return err
+		}
+		mutateFn()
+		obj.SetOwnerReferences(nil)
+		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return err
+		}
+		delete(u, "status")
+		delete(u["metadata"].(map[string]interface{}), "creationTimestamp")
+
+		b, err := yaml.Marshal(u)
+		if err != nil {
+			return err
+		}
+		buf.Write(b)
+	}
+	_, err := buf.WriteTo(out)
+	return err
+}
+
 func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 
@@ -60,12 +105,7 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	for _, component := range []component{
-		{"EmailDeployment", "", r.newEmailDeployment},
-		{"EmailService", "", r.newEmailService},
-		{"CheckoutService", "", r.newCheckoutService},
-		{"RecommendationService", "", r.newRecommendationService},
-	} {
+	for _, component := range r.components() {
 		obj, mutateFn, err := component.fn(ctx, instance)
 		if err != nil {
 			log.Error(err, "Failed to mutate resource", "Kind", component.name)
@@ -80,10 +120,8 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		switch result {
 		case controllerutil.OperationResultCreated:
 			log.Info("Created " + component.name)
-			return ctrl.Result{}, nil
 		case controllerutil.OperationResultUpdated:
 			log.Info("Updated " + component.name)
-			return ctrl.Result{}, nil
 		}
 	}
 
@@ -136,7 +174,7 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 				Drop: []corev1.Capability{"ALL"},
 			},
 			ReadOnlyRootFilesystem: pointer.Bool(true),
-			RunAsNonRoot:           pointer.Bool(true),
+			//RunAsNonRoot:           pointer.Bool(true),
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
@@ -148,6 +186,7 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 	}
 
 	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      emailName(instance),
 			Namespace: instance.Namespace,
@@ -193,77 +232,53 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 }
 
 func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
-	labels := map[string]string{
-		"app": emailName(instance),
-	}
-
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      emailName(instance),
-			Namespace: instance.Namespace,
-		},
-	}
-
-	mutateFn := func() error {
-		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
-			return err
-		}
-
-		service.Spec.Ports = []corev1.ServicePort{
+	return r.newService(ctx, instance, emailName,
+		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
 				Port:       5000,
+				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(8080),
 			},
-		}
-		service.Spec.Selector = labels
-
-		return nil
-	}
-
-	return service, mutateFn, nil
+		},
+	)
 }
 
 func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
-	labels := map[string]string{
-		"app": checkoutName(instance),
-	}
-
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      checkoutName(instance),
-			Namespace: instance.Namespace,
-		},
-	}
-
-	mutateFn := func() error {
-		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
-			return err
-		}
-
-		service.Spec.Ports = []corev1.ServicePort{
+	return r.newService(ctx, instance, checkoutName,
+		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
 				Port:       5050,
+				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(5050),
 			},
-		}
-		service.Spec.Selector = labels
-
-		return nil
-	}
-
-	return service, mutateFn, nil
+		},
+	)
 }
 
 func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+	return r.newService(ctx, instance, recommendationName,
+		[]corev1.ServicePort{
+			{
+				Name:       "grpc",
+				Port:       8080,
+				Protocol:   corev1.ProtocolTCP,
+				TargetPort: intstr.FromInt(8080),
+			},
+		},
+	)
+}
+
+func (r *BoutiqueShopReconciler) newService(ctx context.Context, instance *demov1alpha1.BoutiqueShop, nameFunc func(*demov1alpha1.BoutiqueShop) string, ports []corev1.ServicePort) (client.Object, controllerutil.MutateFn, error) {
 	labels := map[string]string{
-		"app": recommendationName(instance),
+		"app": nameFunc(instance),
 	}
 
 	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      recommendationName(instance),
+			Name:      nameFunc(instance),
 			Namespace: instance.Namespace,
 		},
 	}
@@ -273,13 +288,7 @@ func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, i
 			return err
 		}
 
-		service.Spec.Ports = []corev1.ServicePort{
-			{
-				Name:       "grpc",
-				Port:       8080,
-				TargetPort: intstr.FromInt(8080),
-			},
-		}
+		service.Spec.Ports = ports
 		service.Spec.Selector = labels
 
 		return nil

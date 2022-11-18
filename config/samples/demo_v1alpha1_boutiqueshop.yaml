@@ -7,6 +7,6 @@ metadata:
     app.kubernetes.io/part-of: boutique-shop-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: boutique-shop-operator
-  name: boutiqueshop-sample
+  name: sample
 spec:
   # TODO(user): Add fields here

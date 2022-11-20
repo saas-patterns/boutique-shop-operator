@@ -22,6 +22,10 @@ import (
 
 // BoutiqueShopSpec defines the desired state of BoutiqueShop
 type BoutiqueShopSpec struct {
+	// LoadGeneratorUsers specifies how many fake users the load generator
+	// should simulate. When nil, the load generator Deployment will not run.
+	// +kubebuilder:validation:Minimum=0
+	LoadGeneratorUsers *int `json:"loadGeneratorUsers,omitempty"`
 }
 
 // BoutiqueShopStatus defines the observed state of BoutiqueShop

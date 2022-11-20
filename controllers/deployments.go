@@ -3,19 +3,19 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
 )
 
-func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/adservice:v0.3.9",
@@ -40,6 +40,9 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 			},
 		},
 		LivenessProbe: &corev1.Probe{
+			FailureThreshold:    3,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			InitialDelaySeconds: 20,
 			PeriodSeconds:       15,
 			ProbeHandler: corev1.ProbeHandler{
@@ -49,6 +52,9 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
+			FailureThreshold:    3,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			InitialDelaySeconds: 20,
 			PeriodSeconds:       15,
 			ProbeHandler: corev1.ProbeHandler{
@@ -75,7 +81,7 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -90,10 +96,14 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/cartservice:v0.3.9",
@@ -110,8 +120,11 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 			},
 		},
 		LivenessProbe: &corev1.Probe{
+			FailureThreshold:    3,
 			InitialDelaySeconds: 15,
 			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:7070", "-rpc-timeout=5s"},
@@ -119,7 +132,11 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
+			FailureThreshold:    3,
 			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:7070", "-rpc-timeout=5s"},
@@ -144,7 +161,7 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -159,10 +176,14 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/productcatalogservice:v0.3.9",
@@ -191,7 +212,11 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:3550"},
@@ -199,7 +224,11 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:3550"},
@@ -234,7 +263,7 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -249,10 +278,14 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/checkoutservice:v0.3.9",
@@ -305,7 +338,11 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:5050"},
@@ -313,7 +350,11 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:5050"},
@@ -348,7 +389,7 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -362,10 +403,14 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/currencyservice:v0.3.9",
@@ -395,7 +440,11 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:7000"},
@@ -403,24 +452,18 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:7000"},
 				},
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.Bool(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-			//RunAsNonRoot:           pointer.Bool(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext: newContainerSecurityContext(),
 	}
 
 	labels := map[string]string{
@@ -438,7 +481,7 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -453,10 +496,14 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/emailservice:v0.3.9",
@@ -481,7 +528,11 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
@@ -489,24 +540,18 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
 				},
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.Bool(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-			//RunAsNonRoot:           pointer.Bool(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext: newContainerSecurityContext(),
 	}
 
 	labels := map[string]string{
@@ -524,7 +569,7 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -539,10 +584,14 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/frontend:v0.3.9",
@@ -595,11 +644,16 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 10,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/_healthz",
-					Port: intstr.FromInt(8080),
+					Path:   "/_healthz",
+					Port:   intstr.FromInt(8080),
+					Scheme: corev1.URISchemeHTTP,
 					HTTPHeaders: []corev1.HTTPHeader{
 						{
 							Name:  "Cookie",
@@ -610,11 +664,16 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 10,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/_healthz",
-					Port: intstr.FromInt(8080),
+					Path:   "/_healthz",
+					Port:   intstr.FromInt(8080),
+					Scheme: corev1.URISchemeHTTP,
 					HTTPHeaders: []corev1.HTTPHeader{
 						{
 							Name:  "Cookie",
@@ -624,17 +683,7 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 				},
 			},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.Bool(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-			//RunAsNonRoot:           pointer.Bool(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext: newContainerSecurityContext(),
 	}
 
 	labels := map[string]string{
@@ -652,7 +701,7 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -670,10 +719,27 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
+	labels := map[string]string{
+		"app": loadGeneratorName(instance),
+	}
+
+	// don't run the load generator service if this is not set
+	if instance.Spec.LoadGeneratorUsers == nil {
+		return &appResource{
+			object:      newDeployment(loadGeneratorName(instance), instance.Namespace, labels),
+			mutateFn:    func() error { return nil },
+			shouldExist: false,
+		}, nil
+	}
+
 	container := corev1.Container{
 		Name:  "main",
 		Image: "gcr.io/google-samples/microservices-demo/loadgenerator:v0.3.9",
@@ -684,7 +750,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 			},
 			{
 				Name:  "USERS",
-				Value: "10",
+				Value: strconv.Itoa(*instance.Spec.LoadGeneratorUsers),
 			},
 		},
 		SecurityContext: newContainerSecurityContext(),
@@ -712,10 +778,6 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		SecurityContext: newContainerSecurityContext(),
 	}
 
-	labels := map[string]string{
-		"app": loadGeneratorName(instance),
-	}
-
 	deployment := newDeployment(loadGeneratorName(instance), instance.Namespace, labels)
 
 	mutateFn := func() error {
@@ -727,7 +789,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -740,7 +802,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		if len(deployment.Spec.Template.Spec.InitContainers) != 1 {
 			deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 		} else {
-			c := deployment.Spec.Template.Spec.InitContainers[0]
+			c := &deployment.Spec.Template.Spec.InitContainers[0]
 			c.Command = initContainer.Command
 			c.Env = initContainer.Env
 			c.Image = initContainer.Image
@@ -758,10 +820,14 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/paymentservice:v0.3.9",
@@ -790,7 +856,11 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:50051"},
@@ -798,7 +868,11 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:50051"},
@@ -823,7 +897,7 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -838,10 +912,14 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/recommendationservice:v0.3.9",
@@ -874,7 +952,11 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
@@ -882,7 +964,11 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:8080"},
@@ -907,7 +993,7 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -922,10 +1008,14 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "redis",
 		Image: "docker.io/redis:alpine",
@@ -936,7 +1026,11 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Port: intstr.FromInt(6379),
@@ -944,7 +1038,11 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				TCPSocket: &corev1.TCPSocketAction{
 					Port: intstr.FromInt(6379),
@@ -975,7 +1073,7 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -996,10 +1094,14 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
-func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	container := corev1.Container{
 		Name:  "server",
 		Image: "gcr.io/google-samples/microservices-demo/shippingservice:v0.3.9",
@@ -1028,7 +1130,11 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:50051"},
@@ -1036,7 +1142,11 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
-			PeriodSeconds: 5,
+			FailureThreshold:    3,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			TimeoutSeconds:      1,
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"/bin/grpc_health_probe", "-addr=:50051"},
@@ -1061,7 +1171,7 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 		if len(deployment.Spec.Template.Spec.Containers) != 1 {
 			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 		} else {
-			c := deployment.Spec.Template.Spec.Containers[0]
+			c := &deployment.Spec.Template.Spec.Containers[0]
 			c.Name = container.Name
 			c.Image = container.Image
 			c.Ports = container.Ports
@@ -1076,7 +1186,11 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 		return nil
 	}
 
-	return deployment, mutateFn, nil
+	return &appResource{
+		deployment,
+		mutateFn,
+		true,
+	}, nil
 }
 
 func newContainerSecurityContext() *corev1.SecurityContext {

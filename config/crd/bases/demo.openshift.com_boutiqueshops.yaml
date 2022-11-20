@@ -34,6 +34,13 @@ spec:
             type: object
           spec:
             description: BoutiqueShopSpec defines the desired state of BoutiqueShop
+            properties:
+              loadGeneratorUsers:
+                description: LoadGeneratorUsers specifies how many fake users the
+                  load generator should simulate. When nil, the load generator Deployment
+                  will not run.
+                minimum: 0
+                type: integer
             type: object
           status:
             description: BoutiqueShopStatus defines the observed state of BoutiqueShop

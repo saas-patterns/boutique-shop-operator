@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,7 +34,13 @@ import (
 	demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
 )
 
-type NewComponentFn func(context.Context, *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error)
+type NewComponentFn func(context.Context, *demov1alpha1.BoutiqueShop) (*appResource, error)
+
+type appResource struct {
+	object      client.Object
+	mutateFn    controllerutil.MutateFn
+	shouldExist bool
+}
 
 type component struct {
 	name   string
@@ -87,21 +94,24 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 	log := ctrllog.FromContext(ctx)
 
 	buf := bytes.Buffer{}
-	for i, component := range r.components() {
-		if i > 0 {
-			buf.Write([]byte("\n---\n"))
-		}
-		obj, mutateFn, err := component.fn(ctx, instance)
+	components := r.components()
+	for i, component := range components {
+		resource, err := component.fn(ctx, instance)
 		if err != nil {
 			log.Error(err, "Failed to mutate resource", "Kind", component.name)
 			return err
 		}
-		mutateFn()
+
+		if !resource.shouldExist {
+			continue
+		}
+
+		resource.mutateFn()
 		// we don't want owner refs since the BoutiqueShop resource won't
 		// actually exist
-		obj.SetOwnerReferences(nil)
+		resource.object.SetOwnerReferences(nil)
 		// convert to Unstructured to do further changes
-		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource.object)
 		if err != nil {
 			return err
 		}
@@ -116,6 +126,10 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 			return err
 		}
 		buf.Write(b)
+
+		if i < len(components)-1 {
+			buf.Write([]byte("\n---\n"))
+		}
 	}
 	_, err := buf.WriteTo(out)
 	return err
@@ -131,22 +145,40 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	for _, component := range r.components() {
-		obj, mutateFn, err := component.fn(ctx, instance)
+		resource, err := component.fn(ctx, instance)
 		if err != nil {
 			log.Error(err, "Failed to mutate resource", "Kind", component.name)
 			return ctrl.Result{}, err
 		}
 
-		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, obj, mutateFn)
-		if err != nil {
-			log.Error(err, "Failed to create or update", "Kind", component.name)
-			return ctrl.Result{}, err
-		}
-		switch result {
-		case controllerutil.OperationResultCreated:
-			log.Info("Created " + component.name)
-		case controllerutil.OperationResultUpdated:
-			log.Info("Updated " + component.name)
+		if resource.shouldExist {
+			result, err := controllerutil.CreateOrUpdate(ctx, r.Client, resource.object, resource.mutateFn)
+			if err != nil {
+				log.Error(err, "Failed to create or update", "Kind", component.name)
+				return ctrl.Result{}, err
+			}
+			switch result {
+			case controllerutil.OperationResultCreated:
+				log.Info("Created " + component.name)
+			case controllerutil.OperationResultUpdated:
+				log.Info("Updated " + component.name)
+			}
+		} else {
+			// Ensure the resource does not exist, and call Delete if necessary
+			key := client.ObjectKeyFromObject(resource.object)
+			if err := r.Client.Get(ctx, key, resource.object); err != nil {
+				if apierrors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				log.Error(err, "Get request for resource failed", "Kind", component.name)
+				return ctrl.Result{}, err
+			}
+			err = r.Client.Delete(ctx, resource.object)
+			if err != nil {
+				log.Error(err, "Delete request for resource failed", "Kind", component.name)
+				return ctrl.Result{}, err
+			}
+			log.Info("Deleted " + component.name)
 		}
 	}
 

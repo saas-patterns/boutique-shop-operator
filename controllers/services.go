@@ -6,7 +6,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
@@ -26,7 +25,7 @@ const (
 	shippingServicePort       = 50051
 )
 
-func (r *BoutiqueShopReconciler) newAdService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newAdService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, adName,
 		[]corev1.ServicePort{
 			{
@@ -39,7 +38,7 @@ func (r *BoutiqueShopReconciler) newAdService(ctx context.Context, instance *dem
 	)
 }
 
-func (r *BoutiqueShopReconciler) newCartService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCartService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, cartName,
 		[]corev1.ServicePort{
 			{
@@ -52,7 +51,7 @@ func (r *BoutiqueShopReconciler) newCartService(ctx context.Context, instance *d
 	)
 }
 
-func (r *BoutiqueShopReconciler) newCatalogService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCatalogService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, catalogName,
 		[]corev1.ServicePort{
 			{
@@ -65,7 +64,7 @@ func (r *BoutiqueShopReconciler) newCatalogService(ctx context.Context, instance
 	)
 }
 
-func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, checkoutName,
 		[]corev1.ServicePort{
 			{
@@ -78,7 +77,7 @@ func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instanc
 	)
 }
 
-func (r *BoutiqueShopReconciler) newCurrencyService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newCurrencyService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, currencyName,
 		[]corev1.ServicePort{
 			{
@@ -91,7 +90,7 @@ func (r *BoutiqueShopReconciler) newCurrencyService(ctx context.Context, instanc
 	)
 }
 
-func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, emailName,
 		[]corev1.ServicePort{
 			{
@@ -104,7 +103,7 @@ func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *
 	)
 }
 
-func (r *BoutiqueShopReconciler) newFrontendService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newFrontendService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, frontendName,
 		[]corev1.ServicePort{
 			{
@@ -117,7 +116,7 @@ func (r *BoutiqueShopReconciler) newFrontendService(ctx context.Context, instanc
 	)
 }
 
-func (r *BoutiqueShopReconciler) newPaymentService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newPaymentService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, paymentName,
 		[]corev1.ServicePort{
 			{
@@ -130,7 +129,7 @@ func (r *BoutiqueShopReconciler) newPaymentService(ctx context.Context, instance
 	)
 }
 
-func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, recommendationName,
 		[]corev1.ServicePort{
 			{
@@ -143,7 +142,7 @@ func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, i
 	)
 }
 
-func (r *BoutiqueShopReconciler) newRedisService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newRedisService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, redisName,
 		[]corev1.ServicePort{
 			{
@@ -156,7 +155,7 @@ func (r *BoutiqueShopReconciler) newRedisService(ctx context.Context, instance *
 	)
 }
 
-func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	return r.newService(ctx, instance, shippingName,
 		[]corev1.ServicePort{
 			{
@@ -169,7 +168,7 @@ func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instanc
 	)
 }
 
-func (r *BoutiqueShopReconciler) newService(ctx context.Context, instance *demov1alpha1.BoutiqueShop, nameFunc func(*demov1alpha1.BoutiqueShop) string, ports []corev1.ServicePort) (client.Object, controllerutil.MutateFn, error) {
+func (r *BoutiqueShopReconciler) newService(ctx context.Context, instance *demov1alpha1.BoutiqueShop, nameFunc func(*demov1alpha1.BoutiqueShop) string, ports []corev1.ServicePort) (*appResource, error) {
 	labels := map[string]string{
 		"app": nameFunc(instance),
 	}
@@ -193,5 +192,9 @@ func (r *BoutiqueShopReconciler) newService(ctx context.Context, instance *demov
 		return nil
 	}
 
-	return service, mutateFn, nil
+	return &appResource{
+		object:      service,
+		mutateFn:    mutateFn,
+		shouldExist: true,
+	}, nil
 }

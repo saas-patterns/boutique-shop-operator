@@ -674,8 +674,91 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 }
 
 func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
-	// TODO: implement this
-	return nil, nil, nil
+	container := corev1.Container{
+		Name:  "main",
+		Image: "gcr.io/google-samples/microservices-demo/loadgenerator:v0.3.9",
+		Env: []corev1.EnvVar{
+			{
+				Name:  "FRONTEND_ADDR",
+				Value: fmt.Sprintf("%s:%d", frontendName(instance), frontendServicePort),
+			},
+			{
+				Name:  "USERS",
+				Value: "10",
+			},
+		},
+		SecurityContext: newContainerSecurityContext(),
+	}
+
+	initContainer := corev1.Container{
+		Name:  "frontend-check",
+		Image: "docker.io/busybox:latest",
+		Env: []corev1.EnvVar{
+			{
+				Name:  "FRONTEND_ADDR",
+				Value: fmt.Sprintf("%s:%d", frontendName(instance), frontendServicePort),
+			},
+		},
+		Command: []string{
+			"/bin/sh",
+			"-exc",
+			"echo \"Init container pinging frontend: ${FRONTEND_ADDR}...\"\n" +
+				"STATUSCODE=$(wget --server-response http://${FRONTEND_ADDR} 2>&1 | awk '/^  HTTP/{print $2}')\n" +
+				"if test $STATUSCODE -ne 200; then\n" +
+				"	echo \"Error: Could not reach frontend - Status code: ${STATUSCODE}\"\n" +
+				"	exit 1\n" +
+				"fi\n",
+		},
+		SecurityContext: newContainerSecurityContext(),
+	}
+
+	labels := map[string]string{
+		"app": loadGeneratorName(instance),
+	}
+
+	deployment := newDeployment(loadGeneratorName(instance), instance.Namespace, labels)
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+			return err
+		}
+
+		// don't clobber fields that were defaulted
+		if len(deployment.Spec.Template.Spec.Containers) != 1 {
+			deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
+		} else {
+			c := deployment.Spec.Template.Spec.Containers[0]
+			c.Name = container.Name
+			c.Image = container.Image
+			c.Ports = container.Ports
+			c.Env = container.Env
+			c.LivenessProbe = container.LivenessProbe
+			c.ReadinessProbe = container.ReadinessProbe
+			c.SecurityContext = container.SecurityContext
+		}
+
+		if len(deployment.Spec.Template.Spec.InitContainers) != 1 {
+			deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
+		} else {
+			c := deployment.Spec.Template.Spec.InitContainers[0]
+			c.Command = initContainer.Command
+			c.Env = initContainer.Env
+			c.Image = initContainer.Image
+			c.Name = initContainer.Name
+			c.SecurityContext = initContainer.SecurityContext
+		}
+
+		if deployment.ObjectMeta.Annotations == nil {
+			deployment.ObjectMeta.Annotations = map[string]string{}
+		}
+		deployment.ObjectMeta.Annotations["sidecar.istio.io/rewriteAppHTTPProbers"] = "true"
+		deployment.Spec.Template.Spec.SecurityContext = newPodSecurityContext()
+		deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(5)
+
+		return nil
+	}
+
+	return deployment, mutateFn, nil
 }
 
 func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {

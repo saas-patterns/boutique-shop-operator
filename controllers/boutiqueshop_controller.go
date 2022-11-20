@@ -67,6 +67,7 @@ func (r *BoutiqueShopReconciler) components() []component {
 		{"EmailService", "", r.newEmailService},
 		{"FrontendDeployment", "", r.newFrontendDeployment},
 		{"FrontendService", "", r.newFrontendService},
+		{"LoadGeneratorDeployment", "", r.newLoadGeneratorDeployment},
 		{"PaymentDeployment", "", r.newPaymentDeployment},
 		{"PaymentService", "", r.newPaymentService},
 		{"RecommendationDeployment", "", r.newRecommendationDeployment},

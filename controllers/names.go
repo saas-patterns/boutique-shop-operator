@@ -30,6 +30,10 @@ func frontendName(instance *demov1alpha1.BoutiqueShop) string {
 	return instance.Name + "-frontend"
 }
 
+func loadGeneratorName(instance *demov1alpha1.BoutiqueShop) string {
+	return instance.Name + "-loadgenerator"
+}
+
 func paymentName(instance *demov1alpha1.BoutiqueShop) string {
 	return instance.Name + "-payment"
 }

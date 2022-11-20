@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - demo.openshift.com
+  resources:
+  - boutiqueshops
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - demo.openshift.com
+  resources:
+  - boutiqueshops/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - demo.openshift.com
+  resources:
+  - boutiqueshops/status
+  verbs:
+  - get
+  - patch
+  - update

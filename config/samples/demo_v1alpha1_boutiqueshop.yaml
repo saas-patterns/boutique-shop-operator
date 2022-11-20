@@ -9,4 +9,4 @@ metadata:
     app.kubernetes.io/created-by: boutique-shop-operator
   name: sample
 spec:
-  loadGeneratorUsers: 2
+  #loadGeneratorUsers: 2

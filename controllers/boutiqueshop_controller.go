@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,10 +49,20 @@ type component struct {
 	fn     NewComponentFn
 }
 
+type ExternalAccess string
+
+var (
+	ExternalAccessIngress         ExternalAccess = "Ingress"
+	ExternalAccessNone            ExternalAccess = "None"
+	ExternalAccessRoute           ExternalAccess = "Route"
+	ExternalAccessServiceNodePort ExternalAccess = "ServiceNodePort"
+)
+
 // BoutiqueShopReconciler reconciles a BoutiqueShop object
 type BoutiqueShopReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme         *runtime.Scheme
+	ExternalAccess ExternalAccess
 }
 
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops,verbs=get;list;watch;create;update;patch;delete
@@ -74,6 +85,8 @@ func (r *BoutiqueShopReconciler) components() []component {
 		{"EmailService", "", r.newEmailService},
 		{"FrontendDeployment", "", r.newFrontendDeployment},
 		{"FrontendService", "", r.newFrontendService},
+		{"FrontendIngress", "", r.newFrontendIngress},
+		{"FrontendServiceNodePort", "", r.newFrontendServiceNodePort},
 		{"LoadGeneratorDeployment", "", r.newLoadGeneratorDeployment},
 		{"PaymentDeployment", "", r.newPaymentDeployment},
 		{"PaymentService", "", r.newPaymentService},
@@ -168,7 +181,7 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			key := client.ObjectKeyFromObject(resource.object)
 			if err := r.Client.Get(ctx, key, resource.object); err != nil {
 				if apierrors.IsNotFound(err) {
-					return ctrl.Result{}, nil
+					continue
 				}
 				log.Error(err, "Get request for resource failed", "Kind", component.name)
 				return ctrl.Result{}, err
@@ -191,5 +204,6 @@ func (r *BoutiqueShopReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&demov1alpha1.BoutiqueShop{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&networkingv1.Ingress{}).
 		Complete(r)
 }

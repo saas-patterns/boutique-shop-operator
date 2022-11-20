@@ -168,6 +168,46 @@ func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instanc
 	)
 }
 
+func (r *BoutiqueShopReconciler) newFrontendServiceNodePort(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance.Name + "-frontend-external",
+			Namespace: instance.Namespace,
+		},
+	}
+
+	mutateFn := func() error {
+		if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
+			return err
+		}
+
+		if len(service.Spec.Ports) != 1 {
+			service.Spec.Ports = []corev1.ServicePort{corev1.ServicePort{}}
+		}
+		// set individual fields so we don't clobber the NodePort field that the
+		// owning controller sets.
+		p := &service.Spec.Ports[0]
+		p.Name = "http"
+		p.Port = 80
+		p.Protocol = corev1.ProtocolTCP
+		p.TargetPort = intstr.FromInt(8080)
+
+		service.Spec.Selector = map[string]string{
+			"app": frontendName(instance),
+		}
+		service.Spec.Type = corev1.ServiceTypeNodePort
+
+		return nil
+	}
+
+	return &appResource{
+		object:      service,
+		mutateFn:    mutateFn,
+		shouldExist: r.ExternalAccess == ExternalAccessServiceNodePort,
+	}, nil
+}
+
 func (r *BoutiqueShopReconciler) newService(ctx context.Context, instance *demov1alpha1.BoutiqueShop, nameFunc func(*demov1alpha1.BoutiqueShop) string, ports []corev1.ServicePort) (*appResource, error) {
 	labels := map[string]string{
 		"app": nameFunc(instance),

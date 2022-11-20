@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -44,6 +45,7 @@ var (
 	metricsAddr          string
 	enableLeaderElection bool
 	probeAddr            string
+	externalAccessType   controllers.ExternalAccess
 )
 
 func init() {
@@ -52,6 +54,11 @@ func init() {
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
+	externalUsage := fmt.Sprintf("The type of external access for the operand. Options are: %s, %s, %s, %s.",
+		controllers.ExternalAccessIngress, controllers.ExternalAccessRoute,
+		controllers.ExternalAccessServiceNodePort, controllers.ExternalAccessNone)
+
+	rootCmd.PersistentFlags().StringVarP(&probeAddr, "external-access-type", "e", string(controllers.ExternalAccessNone), externalUsage)
 	rootCmd.Flags().BoolVarP(&enableLeaderElection, "leader-elect", "", false, "enable leader election")
 	rootCmd.Flags().StringVarP(&metricsAddr, "metrics-bind-address", "", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.Flags().StringVarP(&probeAddr, "health-probe-bind-address", "", ":8081", "The address the probe endpoint binds to.")
@@ -83,7 +90,8 @@ var manifestsCmd = &cobra.Command{
 		}
 
 		reconciler := controllers.BoutiqueShopReconciler{
-			Scheme: scheme,
+			Scheme:         scheme,
+			ExternalAccess: externalAccessType,
 		}
 
 		err = reconciler.WriteManifests(&instance, os.Stdout)
@@ -128,8 +136,9 @@ var rootCmd = &cobra.Command{
 		}
 
 		if err = (&controllers.BoutiqueShopReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
+			Client:         mgr.GetClient(),
+			Scheme:         mgr.GetScheme(),
+			ExternalAccess: externalAccessType,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BoutiqueShop")
 			os.Exit(1)

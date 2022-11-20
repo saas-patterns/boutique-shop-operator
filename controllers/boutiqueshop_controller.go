@@ -53,17 +53,27 @@ type BoutiqueShopReconciler struct {
 
 func (r *BoutiqueShopReconciler) components() []component {
 	return []component{
+		{"AdDeployment", "", r.newAdDeployment},
 		{"AdService", "", r.newAdService},
+		{"CartDeployment", "", r.newCartDeployment},
 		{"CartService", "", r.newCartService},
+		{"CatalogDeployment", "", r.newCatalogDeployment},
 		{"CatalogService", "", r.newCatalogService},
+		{"CheckoutDeployment", "", r.newCheckoutDeployment},
 		{"CheckoutService", "", r.newCheckoutService},
+		{"CurrencyDeployment", "", r.newCurrencyDeployment},
 		{"CurrencyService", "", r.newCurrencyService},
 		{"EmailDeployment", "", r.newEmailDeployment},
 		{"EmailService", "", r.newEmailService},
+		{"FrontendDeployment", "", r.newFrontendDeployment},
 		{"FrontendService", "", r.newFrontendService},
+		{"PaymentDeployment", "", r.newPaymentDeployment},
 		{"PaymentService", "", r.newPaymentService},
+		{"RecommendationDeployment", "", r.newRecommendationDeployment},
 		{"RecommendationService", "", r.newRecommendationService},
+		{"RedisDeployment", "", r.newRedisDeployment},
 		{"RedisService", "", r.newRedisService},
+		{"ShippingDeployment", "", r.newShippingDeployment},
 		{"ShippingService", "", r.newShippingService},
 	}
 }

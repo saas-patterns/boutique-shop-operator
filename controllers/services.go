@@ -12,12 +12,26 @@ import (
 	demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
 )
 
+const (
+	adServicePort             = 9555
+	cartServicePort           = 7070
+	catalogServicePort        = 3550
+	checkoutServicePort       = 5050
+	currencyServicePort       = 7000
+	emailServicePort          = 5000
+	frontendServicePort       = 80
+	paymentServicePort        = 50051
+	recommendationServicePort = 8080
+	redisServicePort          = 6379
+	shippingServicePort       = 50051
+)
+
 func (r *BoutiqueShopReconciler) newAdService(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (client.Object, controllerutil.MutateFn, error) {
 	return r.newService(ctx, instance, adName,
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       9555,
+				Port:       adServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(9555),
 			},
@@ -30,7 +44,7 @@ func (r *BoutiqueShopReconciler) newCartService(ctx context.Context, instance *d
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       7070,
+				Port:       cartServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(7070),
 			},
@@ -43,7 +57,7 @@ func (r *BoutiqueShopReconciler) newCatalogService(ctx context.Context, instance
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       3550,
+				Port:       catalogServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(3550),
 			},
@@ -56,7 +70,7 @@ func (r *BoutiqueShopReconciler) newCheckoutService(ctx context.Context, instanc
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       5050,
+				Port:       checkoutServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(5050),
 			},
@@ -69,7 +83,7 @@ func (r *BoutiqueShopReconciler) newCurrencyService(ctx context.Context, instanc
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       7000,
+				Port:       currencyServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(7000),
 			},
@@ -82,7 +96,7 @@ func (r *BoutiqueShopReconciler) newEmailService(ctx context.Context, instance *
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       5000,
+				Port:       emailServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(8080),
 			},
@@ -95,7 +109,7 @@ func (r *BoutiqueShopReconciler) newFrontendService(ctx context.Context, instanc
 		[]corev1.ServicePort{
 			{
 				Name:       "http",
-				Port:       80,
+				Port:       frontendServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(8080),
 			},
@@ -108,7 +122,7 @@ func (r *BoutiqueShopReconciler) newPaymentService(ctx context.Context, instance
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       50051,
+				Port:       paymentServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(50051),
 			},
@@ -121,7 +135,7 @@ func (r *BoutiqueShopReconciler) newRecommendationService(ctx context.Context, i
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       8080,
+				Port:       recommendationServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(8080),
 			},
@@ -134,7 +148,7 @@ func (r *BoutiqueShopReconciler) newRedisService(ctx context.Context, instance *
 		[]corev1.ServicePort{
 			{
 				Name:       "tls-redis",
-				Port:       6379,
+				Port:       redisServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(6379),
 			},
@@ -147,7 +161,7 @@ func (r *BoutiqueShopReconciler) newShippingService(ctx context.Context, instanc
 		[]corev1.ServicePort{
 			{
 				Name:       "grpc",
-				Port:       50051,
+				Port:       shippingServicePort,
 				Protocol:   corev1.ProtocolTCP,
 				TargetPort: intstr.FromInt(50051),
 			},

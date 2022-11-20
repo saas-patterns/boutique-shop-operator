@@ -45,7 +45,7 @@ var (
 	metricsAddr          string
 	enableLeaderElection bool
 	probeAddr            string
-	externalAccessType   controllers.ExternalAccess
+	externalAccessType   string
 )
 
 func init() {
@@ -58,7 +58,7 @@ func init() {
 		controllers.ExternalAccessIngress, controllers.ExternalAccessRoute,
 		controllers.ExternalAccessServiceNodePort, controllers.ExternalAccessNone)
 
-	rootCmd.PersistentFlags().StringVarP(&probeAddr, "external-access-type", "e", string(controllers.ExternalAccessNone), externalUsage)
+	rootCmd.PersistentFlags().StringVarP(&externalAccessType, "external-access-type", "e", string(controllers.ExternalAccessNone), externalUsage)
 	rootCmd.Flags().BoolVarP(&enableLeaderElection, "leader-elect", "", false, "enable leader election")
 	rootCmd.Flags().StringVarP(&metricsAddr, "metrics-bind-address", "", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.Flags().StringVarP(&probeAddr, "health-probe-bind-address", "", ":8081", "The address the probe endpoint binds to.")
@@ -91,7 +91,7 @@ var manifestsCmd = &cobra.Command{
 
 		reconciler := controllers.BoutiqueShopReconciler{
 			Scheme:         scheme,
-			ExternalAccess: externalAccessType,
+			ExternalAccess: controllers.ExternalAccess(externalAccessType),
 		}
 
 		err = reconciler.WriteManifests(&instance, os.Stdout)
@@ -105,6 +105,17 @@ var manifestsCmd = &cobra.Command{
 var rootCmd = &cobra.Command{
 	Use:   "boutique-shop-operator",
 	Short: "Boutique Shop Operator deploys and managed boutique shop in k8s clusters",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		switch externalAccessType {
+		case string(controllers.ExternalAccessIngress):
+		case string(controllers.ExternalAccessNone):
+		case string(controllers.ExternalAccessRoute):
+		case string(controllers.ExternalAccessServiceNodePort):
+		default:
+			return fmt.Errorf("unknown external access type: %s", externalAccessType)
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		opts := zap.Options{
 			Development: true,
@@ -138,7 +149,7 @@ var rootCmd = &cobra.Command{
 		if err = (&controllers.BoutiqueShopReconciler{
 			Client:         mgr.GetClient(),
 			Scheme:         mgr.GetScheme(),
-			ExternalAccess: externalAccessType,
+			ExternalAccess: controllers.ExternalAccess(externalAccessType),
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BoutiqueShop")
 			os.Exit(1)

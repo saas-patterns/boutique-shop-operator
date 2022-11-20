@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
+	github.com/openshift/api v3.9.0+incompatible
 	github.com/spf13/cobra v1.6.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.25.0

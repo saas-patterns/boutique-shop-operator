@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 
+	routev1 "github.com/openshift/api/route/v1"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -200,10 +201,17 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BoutiqueShopReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&demov1alpha1.BoutiqueShop{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.Service{}).
-		Owns(&networkingv1.Ingress{}).
-		Complete(r)
+		Owns(&corev1.Service{})
+
+	switch r.ExternalAccess {
+	case ExternalAccessIngress:
+		b = b.Owns(&networkingv1.Ingress{})
+	case ExternalAccessRoute:
+		b = b.Owns(&routev1.Route{})
+	}
+
+	return b.Complete(r)
 }

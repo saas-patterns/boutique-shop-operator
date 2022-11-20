@@ -66,6 +66,7 @@ func main() {
 var manifestsCmd = &cobra.Command{
 	Use:   "manifests [path to BoutiqueShop yaml file]",
 	Short: "Print manifests to stdout",
+	Long:  "Print a yaml manifest to stdout that can be used to deploy the entire application stack without running the operator in the target cluster.",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]

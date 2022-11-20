@@ -71,6 +71,9 @@ func (r *BoutiqueShopReconciler) components() []component {
 	}
 }
 
+// WriteManifests generates a yaml manifest for the whole application
+// corresponding to what's defined on the BoutiqueShop instance. The yaml is
+// then written to the provided Writer.
 func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueShop, out io.Writer) error {
 	ctx := context.TODO()
 	log := ctrllog.FromContext(ctx)
@@ -86,12 +89,18 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 			return err
 		}
 		mutateFn()
+		// we don't want owner refs since the BoutiqueShop resource won't
+		// actually exist
 		obj.SetOwnerReferences(nil)
+		// convert to Unstructured to do further changes
 		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 		if err != nil {
 			return err
 		}
+		// we don't want status fields
 		delete(u, "status")
+		// creationTimestamp field for some reason renders with a nil value, but
+		// we want to remove it
 		delete(u["metadata"].(map[string]interface{}), "creationTimestamp")
 
 		b, err := yaml.Marshal(u)

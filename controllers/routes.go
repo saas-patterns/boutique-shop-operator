@@ -25,7 +25,7 @@ func (r *BoutiqueShopReconciler) newFrontendRoute(ctx context.Context, instance 
 			return err
 		}
 		route.Spec.Port = &routev1.RoutePort{
-			TargetPort: intstr.FromInt(frontendServicePort),
+			TargetPort: intstr.FromInt(8080),
 		}
 		route.Spec.To.Kind = "Service"
 		route.Spec.To.Name = frontendName(instance)

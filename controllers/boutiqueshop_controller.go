@@ -26,7 +26,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,9 +46,8 @@ type appResource struct {
 }
 
 type component struct {
-	name   string
-	reason string
-	fn     NewComponentFn
+	name string
+	fn   NewComponentFn
 }
 
 type ExternalAccess string
@@ -75,32 +73,32 @@ type BoutiqueShopReconciler struct {
 
 func (r *BoutiqueShopReconciler) components() []component {
 	return []component{
-		{"AdDeployment", "", r.newAdDeployment},
-		{"AdService", "", r.newAdService},
-		{"CartDeployment", "", r.newCartDeployment},
-		{"CartService", "", r.newCartService},
-		{"CatalogDeployment", "", r.newCatalogDeployment},
-		{"CatalogService", "", r.newCatalogService},
-		{"CheckoutDeployment", "", r.newCheckoutDeployment},
-		{"CheckoutService", "", r.newCheckoutService},
-		{"CurrencyDeployment", "", r.newCurrencyDeployment},
-		{"CurrencyService", "", r.newCurrencyService},
-		{"EmailDeployment", "", r.newEmailDeployment},
-		{"EmailService", "", r.newEmailService},
-		{"FrontendDeployment", "", r.newFrontendDeployment},
-		{"FrontendIngress", "", r.newFrontendIngress},
-		{"FrontendRoute", "", r.newFrontendRoute},
-		{"FrontendService", "", r.newFrontendService},
-		{"FrontendServiceNodePort", "", r.newFrontendServiceNodePort},
-		{"LoadGeneratorDeployment", "", r.newLoadGeneratorDeployment},
-		{"PaymentDeployment", "", r.newPaymentDeployment},
-		{"PaymentService", "", r.newPaymentService},
-		{"RecommendationDeployment", "", r.newRecommendationDeployment},
-		{"RecommendationService", "", r.newRecommendationService},
-		{"RedisDeployment", "", r.newRedisDeployment},
-		{"RedisService", "", r.newRedisService},
-		{"ShippingDeployment", "", r.newShippingDeployment},
-		{"ShippingService", "", r.newShippingService},
+		{"AdDeployment", r.newAdDeployment},
+		{"AdService", r.newAdService},
+		{"CartDeployment", r.newCartDeployment},
+		{"CartService", r.newCartService},
+		{"CatalogDeployment", r.newCatalogDeployment},
+		{"CatalogService", r.newCatalogService},
+		{"CheckoutDeployment", r.newCheckoutDeployment},
+		{"CheckoutService", r.newCheckoutService},
+		{"CurrencyDeployment", r.newCurrencyDeployment},
+		{"CurrencyService", r.newCurrencyService},
+		{"EmailDeployment", r.newEmailDeployment},
+		{"EmailService", r.newEmailService},
+		{"FrontendDeployment", r.newFrontendDeployment},
+		{"FrontendIngress", r.newFrontendIngress},
+		{"FrontendRoute", r.newFrontendRoute},
+		{"FrontendService", r.newFrontendService},
+		{"FrontendServiceNodePort", r.newFrontendServiceNodePort},
+		{"LoadGeneratorDeployment", r.newLoadGeneratorDeployment},
+		{"PaymentDeployment", r.newPaymentDeployment},
+		{"PaymentService", r.newPaymentService},
+		{"RecommendationDeployment", r.newRecommendationDeployment},
+		{"RecommendationService", r.newRecommendationService},
+		{"RedisDeployment", r.newRedisDeployment},
+		{"RedisService", r.newRedisService},
+		{"ShippingDeployment", r.newShippingDeployment},
+		{"ShippingService", r.newShippingService},
 	}
 }
 
@@ -108,7 +106,7 @@ func (r *BoutiqueShopReconciler) components() []component {
 // corresponding to what's defined on the BoutiqueShop instance. The yaml is
 // then written to the provided Writer.
 func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueShop, out io.Writer) error {
-	ctx := context.TODO()
+	ctx := context.Background()
 	log := ctrllog.FromContext(ctx)
 
 	buf := bytes.Buffer{}
@@ -116,7 +114,7 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 	for i, component := range components {
 		resource, err := component.fn(ctx, instance)
 		if err != nil {
-			log.Error(err, "Failed to mutate resource", "Kind", component.name)
+			log.Error(err, "Failed to mutate resource", component.name)
 			return err
 		}
 
@@ -126,7 +124,7 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 
 		resource.mutateFn()
 		// we don't want owner refs since the BoutiqueShop resource won't
-		// actually exist
+		// actually exist in the resulting manifest
 		resource.object.SetOwnerReferences(nil)
 		// convert to Unstructured to do further changes
 		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource.object)
@@ -167,7 +165,7 @@ func (r *BoutiqueShopReconciler) statusURL(ctx context.Context, instance *demov1
 	}
 	err := r.Client.Get(ctx, nn, &route)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return "", nil
 		}
 		return "", err
@@ -208,14 +206,14 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for _, component := range r.components() {
 		resource, err := component.fn(ctx, instance)
 		if err != nil {
-			log.Error(err, "Failed to mutate resource", "Kind", component.name)
+			log.Error(err, "Failed to mutate resource", component.name)
 			return ctrl.Result{}, err
 		}
 
 		if resource.shouldExist {
 			result, err := controllerutil.CreateOrUpdate(ctx, r.Client, resource.object, resource.mutateFn)
 			if err != nil {
-				log.Error(err, "Failed to create or update", "Kind", component.name)
+				log.Error(err, "Failed to create or update", component.name)
 				return ctrl.Result{}, err
 			}
 			switch result {
@@ -224,7 +222,7 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			case controllerutil.OperationResultUpdated:
 				log.Info("Updated " + component.name)
 			}
-			return ctrl.Result{}, nil
+			continue
 		}
 
 		// if the resource is a Route and the API doesn't exist in the
@@ -239,14 +237,15 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		key := client.ObjectKeyFromObject(resource.object)
 		if err := r.Client.Get(ctx, key, resource.object); err != nil {
 			if apierrors.IsNotFound(err) {
+				// "not found" is the desired state. Nothing else to do.
 				continue
 			}
-			log.Error(err, "Get request for resource failed", "Kind", component.name)
+			log.Error(err, "Get request for resource failed", component.name)
 			return ctrl.Result{}, err
 		}
 		err = r.Client.Delete(ctx, resource.object)
 		if err != nil {
-			log.Error(err, "Delete request for resource failed", "Kind", component.name)
+			log.Error(err, "Delete request for resource failed", component.name)
 			return ctrl.Result{}, err
 		}
 		log.Info("Deleted " + component.name)

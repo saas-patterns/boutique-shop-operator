@@ -199,7 +199,7 @@ func isRouteAvailable(setupLog logr.Logger) bool {
 	routeAvailable, err := discovery.IsResourceEnabled(discoveryClient, schema.GroupVersionResource{
 		Group:    "route.openshift.io",
 		Version:  "v1",
-		Resource: "Route",
+		Resource: "routes",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to use discovery client")

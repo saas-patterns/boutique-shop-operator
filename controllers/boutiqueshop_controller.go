@@ -26,8 +26,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -151,6 +153,36 @@ func (r *BoutiqueShopReconciler) WriteManifests(instance *demov1alpha1.BoutiqueS
 	return err
 }
 
+// statusURL returns the URL that should be advertised in the instance's Status.
+// This feature is only available when the external access type is Route.
+func (r *BoutiqueShopReconciler) statusURL(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (string, error) {
+	if !r.RouteAvailable || r.ExternalAccess != ExternalAccessRoute {
+		return "", nil
+	}
+
+	route := routev1.Route{}
+	nn := types.NamespacedName{
+		Name:      routeName(instance),
+		Namespace: instance.Namespace,
+	}
+	err := r.Client.Get(ctx, nn, &route)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	var newURL string
+	if len(route.Status.Ingress) == 1 {
+		if route.Status.Ingress[0].Host != "" {
+			newURL = "http://" + route.Status.Ingress[0].Host
+		}
+	}
+
+	return newURL, nil
+}
+
 func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 
@@ -160,6 +192,19 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// check and optionally set status
+	newURL, err := r.statusURL(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to determine application URL")
+		return ctrl.Result{}, err
+	}
+	if newURL != instance.Status.URL {
+		log.Info("setting URL to: " + newURL)
+		instance.Status.URL = newURL
+		return ctrl.Result{}, r.Status().Update(ctx, instance)
+	}
+
+	// create, update, and delete resources as needed
 	for _, component := range r.components() {
 		resource, err := component.fn(ctx, instance)
 		if err != nil {

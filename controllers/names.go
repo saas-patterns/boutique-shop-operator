@@ -46,6 +46,10 @@ func redisName(instance *demov1alpha1.BoutiqueShop) string {
 	return instance.Name + "-redis"
 }
 
+func routeName(instance *demov1alpha1.BoutiqueShop) string {
+	return instance.Name + "-route"
+}
+
 func shippingName(instance *demov1alpha1.BoutiqueShop) string {
 	return instance.Name + "-shipping"
 }

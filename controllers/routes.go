@@ -15,7 +15,7 @@ func (r *BoutiqueShopReconciler) newFrontendRoute(ctx context.Context, instance 
 	route := &routev1.Route{
 		TypeMeta: metav1.TypeMeta{APIVersion: "route.openshift.io/v1", Kind: "Route"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name + "-route",
+			Name:      routeName(instance),
 			Namespace: instance.Namespace,
 		},
 	}

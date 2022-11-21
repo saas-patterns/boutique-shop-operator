@@ -22,10 +22,14 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +54,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
+	utilruntime.Must(routev1.AddToScheme(scheme))
 
 	utilruntime.Must(demov1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -146,10 +152,18 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		routeAvailable := isRouteAvailable(setupLog)
+
+		if !routeAvailable && externalAccessType == string(controllers.ExternalAccessRoute) {
+			setupLog.Error(nil, "cannot use Route for external access because Route API is not available from the apiserver")
+			os.Exit(1)
+		}
+
 		if err = (&controllers.BoutiqueShopReconciler{
 			Client:         mgr.GetClient(),
 			Scheme:         mgr.GetScheme(),
 			ExternalAccess: controllers.ExternalAccess(externalAccessType),
+			RouteAvailable: routeAvailable,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "BoutiqueShop")
 			os.Exit(1)
@@ -171,4 +185,31 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+}
+
+// isRouteAvailable uses the discovery client to check if the
+// route.openshift.io/v1 Route API exists in the apiserver.
+func isRouteAvailable(setupLog logr.Logger) bool {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(ctrl.GetConfigOrDie())
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
+	}
+
+	routeAvailable, err := discovery.IsResourceEnabled(discoveryClient, schema.GroupVersionResource{
+		Group:    "route.openshift.io",
+		Version:  "v1",
+		Resource: "Route",
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to use discovery client")
+		os.Exit(1)
+	}
+
+	if routeAvailable {
+		setupLog.Info("Route API is available")
+	} else {
+		setupLog.Info("Route API is not available")
+	}
+	return routeAvailable
 }

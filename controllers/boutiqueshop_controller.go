@@ -64,6 +64,7 @@ type BoutiqueShopReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
 	ExternalAccess ExternalAccess
+	RouteAvailable bool
 }
 
 //+kubebuilder:rbac:groups=demo.openshift.com,resources=boutiqueshops,verbs=get;list;watch;create;update;patch;delete
@@ -85,8 +86,9 @@ func (r *BoutiqueShopReconciler) components() []component {
 		{"EmailDeployment", "", r.newEmailDeployment},
 		{"EmailService", "", r.newEmailService},
 		{"FrontendDeployment", "", r.newFrontendDeployment},
-		{"FrontendService", "", r.newFrontendService},
 		{"FrontendIngress", "", r.newFrontendIngress},
+		{"FrontendRoute", "", r.newFrontendRoute},
+		{"FrontendService", "", r.newFrontendService},
 		{"FrontendServiceNodePort", "", r.newFrontendServiceNodePort},
 		{"LoadGeneratorDeployment", "", r.newLoadGeneratorDeployment},
 		{"PaymentDeployment", "", r.newPaymentDeployment},
@@ -177,23 +179,32 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			case controllerutil.OperationResultUpdated:
 				log.Info("Updated " + component.name)
 			}
-		} else {
-			// Ensure the resource does not exist, and call Delete if necessary
-			key := client.ObjectKeyFromObject(resource.object)
-			if err := r.Client.Get(ctx, key, resource.object); err != nil {
-				if apierrors.IsNotFound(err) {
-					continue
-				}
-				log.Error(err, "Get request for resource failed", "Kind", component.name)
-				return ctrl.Result{}, err
-			}
-			err = r.Client.Delete(ctx, resource.object)
-			if err != nil {
-				log.Error(err, "Delete request for resource failed", "Kind", component.name)
-				return ctrl.Result{}, err
-			}
-			log.Info("Deleted " + component.name)
+			return ctrl.Result{}, nil
 		}
+
+		// if the resource is a Route and the API doesn't exist in the
+		// apiserver, there's nothing else to do.
+		if _, ok := resource.object.(*routev1.Route); ok {
+			if !r.RouteAvailable {
+				return ctrl.Result{}, nil
+			}
+		}
+
+		// Ensure the resource does not exist, and call Delete if necessary
+		key := client.ObjectKeyFromObject(resource.object)
+		if err := r.Client.Get(ctx, key, resource.object); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			log.Error(err, "Get request for resource failed", "Kind", component.name)
+			return ctrl.Result{}, err
+		}
+		err = r.Client.Delete(ctx, resource.object)
+		if err != nil {
+			log.Error(err, "Delete request for resource failed", "Kind", component.name)
+			return ctrl.Result{}, err
+		}
+		log.Info("Deleted " + component.name)
 	}
 
 	return ctrl.Result{}, nil

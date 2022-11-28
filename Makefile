@@ -127,21 +127,21 @@ podman-push: ## Push podman image with the manager.
 	podman push ${IMG}
 
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
-# architectures. (i.e. make podman-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
-# - able to use podman buildx . More info: https://docs.podman.com/build/buildx/
-# - have enable BuildKit, More info: https://docs.podman.com/develop/develop-images/build_enhancements/
+# architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
+# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 # - be able to push the image for your registry (i.e. if you do not inform a valid value via IMG=<myregistry/image:<tag>> than the export will fail)
 # To properly provided solutions that supports more than one platform you should use this option.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: podman-buildx
-podman-buildx: test ## Build and push podman image for the manager for cross-platform support
-	# copy existing podmanfile and insert --platform=${BUILDPLATFORM} into podmanfile.cross, and preserve the original podmanfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' podmanfile > podmanfile.cross
-	- podman buildx create --name project-v3-builder
-	podman buildx use project-v3-builder
-	- podman buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f podmanfile.cross
-	- podman buildx rm project-v3-builder
-	rm podmanfile.cross
+.PHONY: docker-buildx
+docker-buildx: test ## Build and push docker image for the manager for cross-platform support
+	# copy existing dockerfile and insert --platform=${BUILDPLATFORM} into dockerfile.cross, and preserve the original dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' dockerfile > dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push --platform=$(PLATFORMS) --tag ${IMG} -f dockerfile.cross
+	- docker buildx rm project-v3-builder
+	rm dockerfile.cross
 
 ##@ Deployment
 

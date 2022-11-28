@@ -1,0 +1,51 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: boutique-shop-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: BoutiqueShop is the Schema for the boutiqueshops API
+      displayName: Boutique Shop
+      kind: BoutiqueShop
+      name: boutiqueshops.demo.openshift.com
+      version: v1alpha1
+  description: Installs and manages the Boutique Shop demo application
+  displayName: Boutique Shop Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - saas
+  - boutique
+  - shop
+  - microservice
+  links:
+  - name: Boutique Shop Operator
+    url: https://github.com/saas-patterns/boutique-shop-operator
+  maintainers:
+  - email: mhrivnak@redhat.com
+    name: Michael Hrivnak
+  maturity: alpha
+  provider:
+    name: SaaS Patterns Community
+    url: https://github.com/saas-patterns
+  version: 0.0.0

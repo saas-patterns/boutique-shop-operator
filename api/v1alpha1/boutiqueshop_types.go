@@ -25,7 +25,9 @@ type BoutiqueShopSpec struct {
 	// LoadGeneratorUsers specifies how many fake users the load generator
 	// should simulate. When nil, the load generator Deployment will not run.
 	// +kubebuilder:validation:Minimum=0
-	LoadGeneratorUsers *int `json:"loadGeneratorUsers,omitempty"`
+	LoadGeneratorUsers *int   `json:"loadGeneratorUsers,omitempty"`
+	Tier               string `json:"tier"`
+	TenantPrefix       string `json:"tenantPrefix,omitempty"`
 }
 
 // BoutiqueShopStatus defines the observed state of BoutiqueShop

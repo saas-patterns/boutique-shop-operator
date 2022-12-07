@@ -1,55 +1,53 @@
 package controllers
 
-import demov1alpha1 "github.com/saas-patterns/boutique-shop-operator/api/v1alpha1"
-
-func adName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-ad"
+func adName() string {
+	return "adservice"
 }
 
-func cartName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-cart"
+func cartName() string {
+	return "cartservice"
 }
 
-func catalogName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-catalog"
+func catalogName() string {
+	return "catalogservice"
 }
 
-func checkoutName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-checkout"
+func checkoutName() string {
+	return "checkoutservice"
 }
 
-func currencyName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-currency"
+func currencyName() string {
+	return "currencyservice"
 }
 
-func emailName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-email"
+func emailName() string {
+	return "emailservice"
 }
 
-func frontendName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-frontend"
+func frontendName() string {
+	return "frontendservice"
 }
 
-func loadGeneratorName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-loadgenerator"
+func loadGeneratorName() string {
+	return "loadgeneratorservice"
 }
 
-func paymentName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-payment"
+func paymentName() string {
+	return "paymentservice"
 }
 
-func recommendationName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-recommendation"
+func recommendationName() string {
+	return "recommendationservice"
 }
 
-func redisName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-redis"
+func redisName() string {
+	return "redisservice"
 }
 
-func routeName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-route"
+func routeName() string {
+	return "routeservice"
 }
 
-func shippingName(instance *demov1alpha1.BoutiqueShop) string {
-	return instance.Name + "-shipping"
+func shippingName() string {
+	return "shippingservice"
 }

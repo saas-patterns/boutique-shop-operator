@@ -88,12 +88,6 @@ func (r *BoutiqueShopReconciler) components() []component {
 		{"CurrencyService", r.newCurrencyService},
 		{"EmailDeployment", r.newEmailDeployment},
 		{"EmailService", r.newEmailService},
-		{"FrontendDeployment", r.newFrontendDeployment},
-		{"FrontendIngress", r.newFrontendIngress},
-		{"FrontendRoute", r.newFrontendRoute},
-		{"FrontendService", r.newFrontendService},
-		{"FrontendServiceNodePort", r.newFrontendServiceNodePort},
-		{"LoadGeneratorDeployment", r.newLoadGeneratorDeployment},
 		{"PaymentDeployment", r.newPaymentDeployment},
 		{"PaymentService", r.newPaymentService},
 		{"RecommendationDeployment", r.newRecommendationDeployment},
@@ -102,6 +96,12 @@ func (r *BoutiqueShopReconciler) components() []component {
 		{"RedisService", r.newRedisService},
 		{"ShippingDeployment", r.newShippingDeployment},
 		{"ShippingService", r.newShippingService},
+		{"FrontendDeployment", r.newFrontendDeployment},
+		{"FrontendService", r.newFrontendService},
+		{"FrontendIngress", r.newFrontendIngress},
+		{"FrontendRoute", r.newFrontendRoute},
+		{"FrontendServiceNodePort", r.newFrontendServiceNodePort},
+		{"LoadGeneratorDeployment", r.newLoadGeneratorDeployment},
 	}
 }
 
@@ -163,8 +163,8 @@ func (r *BoutiqueShopReconciler) statusURL(ctx context.Context, instance *demov1
 
 	route := routev1.Route{}
 	nn := types.NamespacedName{
-		Name:      routeName(instance),
-		Namespace: instance.Namespace,
+		Name:      instance.Spec.TenantPrefix,
+		Namespace: r.getNs(instance, frontendName()),
 	}
 	err := r.Client.Get(ctx, nn, &route)
 	if err != nil {
@@ -188,35 +188,24 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log := ctrllog.FromContext(ctx)
 
 	instance := &demov1alpha1.BoutiqueShop{}
+
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
-	// check and optionally set status
-	newURL, err := r.statusURL(ctx, instance)
-	if err != nil {
-		log.Error(err, "failed to determine application URL")
-		return ctrl.Result{}, err
-	}
-	if newURL != instance.Status.URL {
-		log.Info("setting URL to: " + newURL)
-		instance.Status.URL = newURL
-		return ctrl.Result{}, r.Status().Update(ctx, instance)
 	}
 
 	// create, update, and delete resources as needed
 	for _, component := range r.components() {
 		resource, err := component.fn(ctx, instance)
 		if err != nil {
-			log.Error(err, "Failed to mutate resource", component.name)
+			log.Error(err, "Failed to mutate resource: "+component.name)
 			return ctrl.Result{}, err
 		}
 
 		if resource.shouldExist {
 			result, err := controllerutil.CreateOrUpdate(ctx, r.Client, resource.object, resource.mutateFn)
 			if err != nil {
-				log.Error(err, "Failed to create or update", component.name)
+				log.Error(err, "Failed to create or update: "+component.name)
 				return ctrl.Result{}, err
 			}
 			switch result {
@@ -230,9 +219,11 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		// if the resource is a Route and the API doesn't exist in the
 		// apiserver, there's nothing else to do.
+
 		if _, ok := resource.object.(*routev1.Route); ok {
 			if !r.RouteAvailable {
-				return ctrl.Result{}, nil
+				//return ctrl.Result{}, nil
+				continue
 			}
 		}
 
@@ -243,15 +234,27 @@ func (r *BoutiqueShopReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				// "not found" is the desired state. Nothing else to do.
 				continue
 			}
-			log.Error(err, "Get request for resource failed", component.name)
+			log.Error(err, "Get request for resource failed: "+component.name)
 			return ctrl.Result{}, err
 		}
 		err = r.Client.Delete(ctx, resource.object)
 		if err != nil {
-			log.Error(err, "Delete request for resource failed", component.name)
+			log.Error(err, "Delete request for resource failed: "+component.name)
 			return ctrl.Result{}, err
 		}
 		log.Info("Deleted " + component.name)
+	}
+
+	// check and optionally set status
+	newURL, err := r.statusURL(ctx, instance)
+	if err != nil {
+		log.Error(err, "failed to determine application URL")
+		return ctrl.Result{}, err
+	}
+	if newURL != instance.Status.URL {
+		log.Info("setting URL to: " + newURL)
+		instance.Status.URL = newURL
+		return ctrl.Result{}, r.Status().Update(ctx, instance)
 	}
 
 	return ctrl.Result{}, nil

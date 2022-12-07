@@ -2,11 +2,17 @@ apiVersion: demo.openshift.com/v1alpha1
 kind: BoutiqueShop
 metadata:
   labels:
-    app.kubernetes.io/name: boutiqueshop
-    app.kubernetes.io/instance: boutiqueshop-sample
+    app.kubernetes.io/name: boutiqueshop-sample-silver
+    app.kubernetes.io/instance: boutiqueshop-sample-silver
     app.kubernetes.io/part-of: boutique-shop-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: boutique-shop-operator
-  name: sample
+  name: boutiqueshop-sample-silver
+  namespace: boutique-silver
 spec:
   #loadGeneratorUsers: 2
+  tier: silver
+  tenantPrefix: sample-silver-shop
+
+
+

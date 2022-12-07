@@ -1,4 +1,12 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- demo_v1alpha1_boutiqueshop.yaml
+- demo_v1alpha1_boutiqueshop_free_shop.yaml
+- demo_v1alpha1_boutiqueshop_free_tier.yaml
+- demo_v1alpha1_boutiqueshop_gold_shop.yaml
+- demo_v1alpha1_boutiqueshop_gold_tier.yaml
+- demo_v1alpha1_boutiqueshop_platinum_shop.yaml
+- demo_v1alpha1_boutiqueshop_silver_shop.yaml
+- demo_v1alpha1_boutiqueshop_silver_tier.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
+
+

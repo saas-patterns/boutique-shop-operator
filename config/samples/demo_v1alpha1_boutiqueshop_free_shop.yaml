@@ -1,0 +1,15 @@
+apiVersion: demo.openshift.com/v1alpha1
+kind: BoutiqueShop
+metadata:
+  labels:
+    app.kubernetes.io/name: boutiqueshop-sample-free
+    app.kubernetes.io/instance: boutiqueshop-sample-free
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: boutiqueshop-sample-free
+  namespace: boutique-free
+spec:
+  #loadGeneratorUsers: 2
+  tier: free
+  tenantPrefix: sample-free-shop

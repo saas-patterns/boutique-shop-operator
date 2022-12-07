@@ -30,7 +30,7 @@ func (r *BoutiqueShopReconciler) newFrontendIngress(ctx context.Context, instanc
 								PathType: (*networkingv1.PathType)(pointer.StringPtr(string(networkingv1.PathTypePrefix))),
 								Backend: networkingv1.IngressBackend{
 									Service: &networkingv1.IngressServiceBackend{
-										Name: frontendName(instance),
+										Name: frontendName(),
 										Port: networkingv1.ServiceBackendPort{
 											Number: frontendServicePort,
 										},

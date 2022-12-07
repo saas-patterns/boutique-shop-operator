@@ -15,7 +15,7 @@ func (r *BoutiqueShopReconciler) newFrontendRoute(ctx context.Context, instance 
 	route := &routev1.Route{
 		TypeMeta: metav1.TypeMeta{APIVersion: "route.openshift.io/v1", Kind: "Route"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      routeName(instance),
+			Name:      instance.Spec.TenantPrefix,
 			Namespace: instance.Namespace,
 		},
 	}
@@ -27,8 +27,12 @@ func (r *BoutiqueShopReconciler) newFrontendRoute(ctx context.Context, instance 
 		route.Spec.Port = &routev1.RoutePort{
 			TargetPort: intstr.FromInt(8080),
 		}
+		route.Spec.TLS = &routev1.TLSConfig{
+			Termination:                   routev1.TLSTerminationEdge,
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+		}
 		route.Spec.To.Kind = "Service"
-		route.Spec.To.Name = frontendName(instance)
+		route.Spec.To.Name = frontendName()
 
 		return nil
 	}
@@ -36,6 +40,7 @@ func (r *BoutiqueShopReconciler) newFrontendRoute(ctx context.Context, instance 
 	return &appResource{
 		route,
 		mutateFn,
-		r.ExternalAccess == ExternalAccessRoute,
+		r.shouldRouteExist(instance, routeName()) &&
+			r.ExternalAccess == ExternalAccessRoute,
 	}, nil
 }

@@ -63,14 +63,13 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 				},
 			},
 		},
-		SecurityContext: newContainerSecurityContext(),
+		// SecurityContext: newContainerSecurityContext(),
 	}
 
 	labels := map[string]string{
-		"app": adName(instance),
+		"app": adName(),
 	}
-
-	deployment := newDeployment(adName(instance), instance.Namespace, labels)
+	deployment := newDeployment(adName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -90,7 +89,7 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 			c.ReadinessProbe = container.ReadinessProbe
 			c.SecurityContext = container.SecurityContext
 		}
-		deployment.Spec.Template.Spec.SecurityContext = newPodSecurityContext()
+		//deployment.Spec.Template.Spec.SecurityContext = newPodSecurityContext()
 		deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.Int64(5)
 
 		return nil
@@ -99,7 +98,7 @@ func (r *BoutiqueShopReconciler) newAdDeployment(ctx context.Context, instance *
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, adName()),
 	}, nil
 }
 
@@ -116,7 +115,7 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 		Env: []corev1.EnvVar{
 			{
 				Name:  "REDIS_ADDR",
-				Value: fmt.Sprintf("%s:%d", redisName(instance), redisServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", redisName(), r.getNs(instance, redisName()), redisServicePort),
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -147,10 +146,10 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 	}
 
 	labels := map[string]string{
-		"app": cartName(instance),
+		"app": cartName(),
 	}
 
-	deployment := newDeployment(cartName(instance), instance.Namespace, labels)
+	deployment := newDeployment(cartName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -179,7 +178,7 @@ func (r *BoutiqueShopReconciler) newCartDeployment(ctx context.Context, instance
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, cartName()),
 	}, nil
 }
 
@@ -236,23 +235,23 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.Bool(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-			//RunAsNonRoot:           pointer.Bool(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
+			// AllowPrivilegeEscalation: pointer.Bool(false),
+			// Capabilities: &corev1.Capabilities{
+			// 	Drop: []corev1.Capability{"ALL"},
+			// },
+			// ReadOnlyRootFilesystem: pointer.Bool(true),
+			// //RunAsNonRoot:           pointer.Bool(true),
+			// SeccompProfile: &corev1.SeccompProfile{
+			// 	Type: corev1.SeccompProfileTypeRuntimeDefault,
+			// },
 		},
 	}
 
 	labels := map[string]string{
-		"app": catalogName(instance),
+		"app": catalogName(),
 	}
 
-	deployment := newDeployment(catalogName(instance), instance.Namespace, labels)
+	deployment := newDeployment(catalogName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -277,11 +276,10 @@ func (r *BoutiqueShopReconciler) newCatalogDeployment(ctx context.Context, insta
 
 		return nil
 	}
-
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, catalogName()),
 	}, nil
 }
 
@@ -302,27 +300,27 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 			},
 			{
 				Name:  "CART_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", cartName(instance), cartServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", cartName(), r.getNs(instance, cartName()), cartServicePort),
 			},
 			{
 				Name:  "CURRENCY_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", currencyName(instance), currencyServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", currencyName(), r.getNs(instance, currencyName()), currencyServicePort),
 			},
 			{
 				Name:  "EMAIL_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", emailName(instance), emailServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", emailName(), r.getNs(instance, emailName()), emailServicePort),
 			},
 			{
 				Name:  "PAYMENT_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", paymentName(instance), paymentServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", paymentName(), r.getNs(instance, paymentName()), paymentServicePort),
 			},
 			{
 				Name:  "PRODUCT_CATALOG_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", catalogName(instance), catalogServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", catalogName(), r.getNs(instance, catalogName()), catalogServicePort),
 			},
 			{
 				Name:  "SHIPPING_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", shippingName(instance), shippingServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", shippingName(), r.getNs(instance, shippingName()), shippingServicePort),
 			},
 			{
 				Name:  "DISABLE_PROFILER",
@@ -362,23 +360,23 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: pointer.Bool(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			ReadOnlyRootFilesystem: pointer.Bool(true),
-			//RunAsNonRoot:           pointer.Bool(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
+			// AllowPrivilegeEscalation: pointer.Bool(false),
+			// Capabilities: &corev1.Capabilities{
+			// 	Drop: []corev1.Capability{"ALL"},
+			// },
+			// ReadOnlyRootFilesystem: pointer.Bool(true),
+			// //RunAsNonRoot:           pointer.Bool(true),
+			// SeccompProfile: &corev1.SeccompProfile{
+			// 	Type: corev1.SeccompProfileTypeRuntimeDefault,
+			// },
 		},
 	}
 
 	labels := map[string]string{
-		"app": checkoutName(instance),
+		"app": checkoutName(),
 	}
 
-	deployment := newDeployment(checkoutName(instance), instance.Namespace, labels)
+	deployment := newDeployment(checkoutName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -406,7 +404,7 @@ func (r *BoutiqueShopReconciler) newCheckoutDeployment(ctx context.Context, inst
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, checkoutName()),
 	}, nil
 }
 
@@ -467,10 +465,10 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 	}
 
 	labels := map[string]string{
-		"app": currencyName(instance),
+		"app": currencyName(),
 	}
 
-	deployment := newDeployment(currencyName(instance), instance.Namespace, labels)
+	deployment := newDeployment(currencyName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -499,7 +497,7 @@ func (r *BoutiqueShopReconciler) newCurrencyDeployment(ctx context.Context, inst
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, currencyName()),
 	}, nil
 }
 
@@ -555,10 +553,10 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 	}
 
 	labels := map[string]string{
-		"app": emailName(instance),
+		"app": emailName(),
 	}
 
-	deployment := newDeployment(emailName(instance), instance.Namespace, labels)
+	deployment := newDeployment(emailName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -587,7 +585,7 @@ func (r *BoutiqueShopReconciler) newEmailDeployment(ctx context.Context, instanc
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, emailName()),
 	}, nil
 }
 
@@ -616,31 +614,31 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 			},
 			{
 				Name:  "AD_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", adName(instance), adServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", adName(), r.getNs(instance, adName()), adServicePort),
 			},
 			{
 				Name:  "CART_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", cartName(instance), cartServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", cartName(), r.getNs(instance, cartName()), cartServicePort),
 			},
 			{
 				Name:  "CHECKOUT_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", checkoutName(instance), checkoutServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", checkoutName(), r.getNs(instance, checkoutName()), checkoutServicePort),
 			},
 			{
 				Name:  "CURRENCY_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", currencyName(instance), currencyServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", currencyName(), r.getNs(instance, currencyName()), currencyServicePort),
 			},
 			{
 				Name:  "PRODUCT_CATALOG_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", catalogName(instance), catalogServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", catalogName(), r.getNs(instance, catalogName()), catalogServicePort),
 			},
 			{
 				Name:  "RECOMMENDATION_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", recommendationName(instance), recommendationServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", recommendationName(), r.getNs(instance, recommendationName()), recommendationServicePort),
 			},
 			{
 				Name:  "SHIPPING_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", shippingName(instance), shippingServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", shippingName(), r.getNs(instance, shippingName()), shippingServicePort),
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -687,10 +685,10 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 	}
 
 	labels := map[string]string{
-		"app": frontendName(instance),
+		"app": frontendName(),
 	}
 
-	deployment := newDeployment(frontendName(instance), instance.Namespace, labels)
+	deployment := newDeployment(frontendName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -722,19 +720,19 @@ func (r *BoutiqueShopReconciler) newFrontendDeployment(ctx context.Context, inst
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, frontendName()),
 	}, nil
 }
 
 func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context, instance *demov1alpha1.BoutiqueShop) (*appResource, error) {
 	labels := map[string]string{
-		"app": loadGeneratorName(instance),
+		"app": loadGeneratorName(),
 	}
 
 	// don't run the load generator service if this is not set
 	if instance.Spec.LoadGeneratorUsers == nil {
 		return &appResource{
-			object:      newDeployment(loadGeneratorName(instance), instance.Namespace, labels),
+			object:      newDeployment(loadGeneratorName(), instance.Namespace, labels),
 			mutateFn:    func() error { return nil },
 			shouldExist: false,
 		}, nil
@@ -746,7 +744,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "FRONTEND_ADDR",
-				Value: fmt.Sprintf("%s:%d", frontendName(instance), frontendServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", frontendName(), instance.Namespace, frontendServicePort),
 			},
 			{
 				Name:  "USERS",
@@ -762,7 +760,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		Env: []corev1.EnvVar{
 			{
 				Name:  "FRONTEND_ADDR",
-				Value: fmt.Sprintf("%s:%d", frontendName(instance), frontendServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", frontendName(), r.getNs(instance, frontendName()), frontendServicePort),
 			},
 		},
 		Command: []string{
@@ -778,7 +776,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 		SecurityContext: newContainerSecurityContext(),
 	}
 
-	deployment := newDeployment(loadGeneratorName(instance), instance.Namespace, labels)
+	deployment := newDeployment(loadGeneratorName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -823,7 +821,7 @@ func (r *BoutiqueShopReconciler) newLoadGeneratorDeployment(ctx context.Context,
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, frontendName()),
 	}, nil
 }
 
@@ -883,10 +881,10 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 	}
 
 	labels := map[string]string{
-		"app": paymentName(instance),
+		"app": paymentName(),
 	}
 
-	deployment := newDeployment(paymentName(instance), instance.Namespace, labels)
+	deployment := newDeployment(paymentName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -915,7 +913,7 @@ func (r *BoutiqueShopReconciler) newPaymentDeployment(ctx context.Context, insta
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, paymentName()),
 	}, nil
 }
 
@@ -948,7 +946,7 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 			},
 			{
 				Name:  "PRODUCT_CATALOG_SERVICE_ADDR",
-				Value: fmt.Sprintf("%s:%d", catalogName(instance), catalogServicePort),
+				Value: fmt.Sprintf("%s.%s.svc:%d", catalogName(), r.getNs(instance, catalogName()), catalogServicePort),
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -979,10 +977,10 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 	}
 
 	labels := map[string]string{
-		"app": recommendationName(instance),
+		"app": recommendationName(),
 	}
 
-	deployment := newDeployment(recommendationName(instance), instance.Namespace, labels)
+	deployment := newDeployment(recommendationName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -1011,7 +1009,7 @@ func (r *BoutiqueShopReconciler) newRecommendationDeployment(ctx context.Context
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, recommendationName()),
 	}, nil
 }
 
@@ -1059,10 +1057,10 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 	}
 
 	labels := map[string]string{
-		"app": redisName(instance),
+		"app": redisName(),
 	}
 
-	deployment := newDeployment(redisName(instance), instance.Namespace, labels)
+	deployment := newDeployment(redisName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -1097,7 +1095,7 @@ func (r *BoutiqueShopReconciler) newRedisDeployment(ctx context.Context, instanc
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, redisName()),
 	}, nil
 }
 
@@ -1157,10 +1155,10 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 	}
 
 	labels := map[string]string{
-		"app": shippingName(instance),
+		"app": shippingName(),
 	}
 
-	deployment := newDeployment(shippingName(instance), instance.Namespace, labels)
+	deployment := newDeployment(shippingName(), instance.Namespace, labels)
 
 	mutateFn := func() error {
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -1189,33 +1187,34 @@ func (r *BoutiqueShopReconciler) newShippingDeployment(ctx context.Context, inst
 	return &appResource{
 		deployment,
 		mutateFn,
-		true,
+		r.shouldExist(instance, shippingName()),
 	}, nil
 }
 
 func newContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
-		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"ALL"},
-		},
-		ReadOnlyRootFilesystem: pointer.Bool(true),
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
+		// AllowPrivilegeEscalation: pointer.Bool(false),
+		// Capabilities: &corev1.Capabilities{
+		// 	Drop: []corev1.Capability{"ALL"},
+		// },
+		// ReadOnlyRootFilesystem: pointer.Bool(true),
+		// SeccompProfile: &corev1.SeccompProfile{
+		// 	Type: corev1.SeccompProfileTypeRuntimeDefault,
+		// },
 	}
 }
 
 func newPodSecurityContext() *corev1.PodSecurityContext {
 	return &corev1.PodSecurityContext{
-		FSGroup:      pointer.Int64(1000),
-		RunAsGroup:   pointer.Int64(1000),
-		RunAsUser:    pointer.Int64(1000),
-		RunAsNonRoot: pointer.Bool(true),
+		// FSGroup:      pointer.Int64(1000),
+		// RunAsGroup:   pointer.Int64(1000),
+		// RunAsUser:    pointer.Int64(1000),
+		// RunAsNonRoot: pointer.Bool(true),
 	}
 }
 
 func newDeployment(name, namespace string, labels map[string]string) *appsv1.Deployment {
+
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{

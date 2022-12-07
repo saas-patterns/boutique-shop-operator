@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: boutique-free
+---
+apiVersion: demo.openshift.com/v1alpha1
+kind: BoutiqueShop
+metadata:
+  labels:
+    app.kubernetes.io/name: boutique-free
+    app.kubernetes.io/instance: boutique-free
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: boutique-free
+  namespace: boutique-free
+spec:
+  #loadGeneratorUsers: 2
+  tier: free

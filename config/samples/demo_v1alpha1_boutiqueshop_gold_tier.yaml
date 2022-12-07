@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: boutique-ops
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: enterprise-utilities
+---
+apiVersion: demo.openshift.com/v1alpha1
+kind: BoutiqueShop
+metadata:
+  labels:
+    app.kubernetes.io/name: boutique-ops
+    app.kubernetes.io/instance: boutique-ops
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: boutique-ops
+  namespace: boutique-ops
+spec:
+  #loadGeneratorUsers: 2
+  tier: gold
+---
+apiVersion: demo.openshift.com/v1alpha1
+kind: BoutiqueShop
+metadata:
+  labels:
+    app.kubernetes.io/name: enterprise-utilities
+    app.kubernetes.io/instance: enterprise-utilities
+    app.kubernetes.io/part-of: boutique-shop-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: boutique-shop-operator
+  name: enterprise-utilities
+  namespace: enterprise-utilities
+spec:
+  #loadGeneratorUsers: 2
+  tier: gold

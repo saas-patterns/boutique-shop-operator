@@ -41,6 +41,12 @@ spec:
                   will not run.
                 minimum: 0
                 type: integer
+              tenantPrefix:
+                type: string
+              tier:
+                type: string
+            required:
+            - tier
             type: object
           status:
             description: BoutiqueShopStatus defines the observed state of BoutiqueShop
